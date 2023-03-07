@@ -15,18 +15,23 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 from utils import __balance_val_split, __split_of_train_sequence, __log_class_statistics
-from datasets.czech_slr_dataset import CzechSLRDataset
+from datasets.Lsp_dataset import LSP_Dataset
 from spoter.spoter_model import SPOTER
 from spoter.utils import train_epoch, evaluate
 from spoter.gaussian_noise import GaussianNoise
 
+import wandb
+
+CONFIG_FILENAME = "config.json"
+PROJECT_WANDB = "Spoter-as-orignal"
+ENTITY = "joenatan30"
 
 def get_default_args():
     parser = argparse.ArgumentParser(add_help=False)
 
     parser.add_argument("--experiment_name", type=str, default="lsa_64_spoter",
                         help="Name of the experiment after which the logs and plots will be named")
-    parser.add_argument("--num_classes", type=int, default=64, help="Number of classes to be recognized by the model")
+    parser.add_argument("--num_classes", type=int, default=100, help="Number of classes to be recognized by the model")
     parser.add_argument("--hidden_dim", type=int, default=108,
                         help="Hidden dimension of the underlying Transformer model")
     parser.add_argument("--seed", type=int, default=379,
@@ -99,6 +104,10 @@ def train(args):
         ]
     )
 
+    run = wandb.init(project=PROJECT_WANDB, entity=ENTITY, config=args, name=args.experiment_name, job_type="model-training")
+    config = wandb.config
+    wandb.watch_called = False
+
     # Set device to CUDA only if applicable
     device = torch.device("cpu")
     if torch.cuda.is_available():
@@ -118,16 +127,19 @@ def train(args):
     Path("out-checkpoints/" + args.experiment_name + "/").mkdir(parents=True, exist_ok=True)
     Path("out-img/").mkdir(parents=True, exist_ok=True)
 
-
     # MARK: DATA
+    artifact_name = config['experiment_name']
+    print("artifact_name : ", artifact_name)    
+    model_artifact = wandb.Artifact(artifact_name, type='model')
+
 
     # Training set
     transform = transforms.Compose([GaussianNoise(args.gaussian_mean, args.gaussian_std)])
-    train_set = CzechSLRDataset(args.training_set_path, transform=transform, augmentations=True)
+    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=True, keypoints_model='mediapipe')
 
     # Validation set
     if args.validation_set == "from-file":
-        val_set = CzechSLRDataset(args.validation_set_path)
+        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=False)
         val_loader = DataLoader(val_set, shuffle=True, generator=g)
 
     elif args.validation_set == "split-from-train":
@@ -142,7 +154,7 @@ def train(args):
 
     # Testing set
     if args.testing_set_path:
-        eval_set = CzechSLRDataset(args.testing_set_path)
+        eval_set = LSP_Dataset(args.testing_set_path)
         eval_loader = DataLoader(eval_set, shuffle=True, generator=g)
 
     else:
@@ -157,7 +169,7 @@ def train(args):
 
     # MARK: TRAINING
     train_acc, val_acc = 0, 0
-    losses, train_accs, val_accs = [], [], []
+    losses, train_accs, val_accs, val_accs_top5 = [], [], [], []
     lr_progress = []
     top_train_acc, top_val_acc = 0, 0
     checkpoint_index = 0
@@ -172,39 +184,49 @@ def train(args):
 
     for epoch in range(args.epochs):
         train_loss, _, _, train_acc = train_epoch(slrt_model, train_loader, cel_criterion, sgd_optimizer, device)
-        losses.append(train_loss.item() / len(train_loader))
+        losses.append(train_loss.item())
         train_accs.append(train_acc)
 
         if val_loader:
             slrt_model.train(False)
-            _, _, val_acc = evaluate(slrt_model, val_loader, device)
+            val_loss, _, _, val_acc, val_acc_top5 = evaluate(slrt_model, val_loader, cel_criterion, device)
             slrt_model.train(True)
             val_accs.append(val_acc)
+            val_accs_top5.append(val_accs_top5)
+            wandb.log({
+                'train_acc': train_acc,
+                'train_loss': train_loss,
+                'val_acc': val_acc,
+                'val_top5_acc': val_acc_top5,
+                'val_loss':val_loss,
+                'epoch': epoch
+            })
 
         # Save checkpoints if they are best in the current subset
         if args.save_checkpoints:
             if train_acc > top_train_acc:
                 top_train_acc = train_acc
+                val_acc_top5
                 torch.save(slrt_model, "out-checkpoints/" + args.experiment_name + "/checkpoint_t_" + str(checkpoint_index) + ".pth")
-
+                
             if val_acc > top_val_acc:
                 top_val_acc = val_acc
                 torch.save(slrt_model, "out-checkpoints/" + args.experiment_name + "/checkpoint_v_" + str(checkpoint_index) + ".pth")
 
         if epoch % args.log_freq == 0:
-            print("[" + str(epoch + 1) + "] TRAIN  loss: " + str(train_loss.item() / len(train_loader)) + " acc: " + str(train_acc))
-            logging.info("[" + str(epoch + 1) + "] TRAIN  loss: " + str(train_loss.item() / len(train_loader)) + " acc: " + str(train_acc))
+            print("[" + str(epoch + 1) + "] TRAIN  loss: " + str(train_loss.item()) + " acc: " + str(train_acc))
+            logging.info("[" + str(epoch + 1) + "] TRAIN  loss: " + str(train_loss.item()) + " acc: " + str(train_acc))
 
             if val_loader:
-                print("[" + str(epoch + 1) + "] VALIDATION  acc: " + str(val_acc))
-                logging.info("[" + str(epoch + 1) + "] VALIDATION  acc: " + str(val_acc))
+                print("[" + str(epoch + 1) + "] VALIDATION  loss: " + str(val_loss.item()) + "acc: " + str(val_acc) + " top-5(acc): " + str(val_acc_top5))
+                logging.info("[" + str(epoch + 1) + "] VALIDATION  loss: " + str(val_loss.item()) + "acc: " + str(val_acc) + " top-5(acc): " + str(val_acc_top5))
 
             print("")
             logging.info("")
 
         # Reset the top accuracies on static subsets
         if epoch % 10 == 0:
-            top_train_acc, top_val_acc = 0, 0
+            top_train_acc, top_val_acc, val_acc_top5 = 0, 0, 0
             checkpoint_index += 1
 
         lr_progress.append(sgd_optimizer.param_groups[0]["lr"])
@@ -243,6 +265,7 @@ def train(args):
 
         if val_loader:
             ax.plot(range(1, len(val_accs) + 1), val_accs, c="#E0A938", label="Validation accuracy")
+            ax.plot(range(1, len(val_accs_top5) + 1), val_accs_top5, c="#F2B09A", label="val_Top5_acc")
 
         ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
 
