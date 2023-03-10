@@ -237,7 +237,6 @@ def get_dataset_from_hdf5(path,keypoints_model,landmarks_ref,keypoints_number,th
         df_keypoints = df_keypoints[(df_keypoints['Selected 71']=='x' )& (df_keypoints['Key']!='wrist')]
     else:
         df_keypoints = df_keypoints[(df_keypoints['Selected 54']=='x')]
-    print(len(df_keypoints),"JEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
 
     logging.info(" using keypoints_number: "+str(keypoints_number))
 
