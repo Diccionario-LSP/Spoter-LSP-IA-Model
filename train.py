@@ -31,7 +31,7 @@ def get_default_args():
 
     parser.add_argument("--experiment_name", type=str, default="lsa_64_spoter",
                         help="Name of the experiment after which the logs and plots will be named")
-    parser.add_argument("--num_classes", type=int, default=100, help="Number of classes to be recognized by the model")
+    parser.add_argument("--num_classes", type=int, default=50, help="Number of classes to be recognized by the model")
     parser.add_argument("--hidden_dim", type=int, default=108,
                         help="Hidden dimension of the underlying Transformer model")
     parser.add_argument("--seed", type=int, default=379,
@@ -77,6 +77,9 @@ def get_default_args():
     parser.add_argument("--plot_lr", type=bool, default=True,
                         help="Determines whether the LR should be plotted at the end")
 
+    # To continue training the data
+    parser.add_argument("--continue_training", type=str, default="",help="path to retrieve the model to continue training")
+
     return parser
 
 
@@ -118,9 +121,18 @@ def train(args):
     slrt_model.train(True)
     slrt_model.to(device)
 
+
     # Construct the other modules
     cel_criterion = nn.CrossEntropyLoss()
     sgd_optimizer = optim.SGD(slrt_model.parameters(), lr=args.lr)
+    epoch_start = 0
+
+    if args.continue_training:
+        checkpoint = torch.load(args.continue_training)
+        slrt_model.load_state_dict(checkpoint['model_state_dict'])
+        sgd_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch_start = checkpoint['epoch']
+
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(sgd_optimizer, factor=args.scheduler_factor, patience=args.scheduler_patience)
 
     # Ensure that the path for checkpointing and for images both exist
@@ -132,14 +144,21 @@ def train(args):
     print("artifact_name : ", artifact_name)    
     model_artifact = wandb.Artifact(artifact_name, type='model')
 
+    print("#"*50)
+    print("#"*30)
+    print("#"*10)
+    print("Num Trainable Params: ", sum(p.numel() for p in slrt_model.parameters() if p.requires_grad))
+    print("#"*10)
+    print("#"*30)
+    print("#"*50)
 
     # Training set
     transform = transforms.Compose([GaussianNoise(args.gaussian_mean, args.gaussian_std)])
-    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=True, keypoints_model='mediapipe')
+    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=False, keypoints_model='mediapipe')
 
     # Validation set
     if args.validation_set == "from-file":
-        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=False)
+        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=True)
         val_loader = DataLoader(val_set, shuffle=True, generator=g)
 
     elif args.validation_set == "split-from-train":
@@ -182,7 +201,7 @@ def train(args):
         print("Starting " + args.experiment_name + "...\n\n")
         logging.info("Starting " + args.experiment_name + "...\n\n")
 
-    for epoch in range(args.epochs):
+    for epoch in range(epoch_start, args.epochs):
         train_loss, _, _, train_acc = train_epoch(slrt_model, train_loader, cel_criterion, sgd_optimizer, device)
         losses.append(train_loss.item())
         train_accs.append(train_acc)
@@ -192,7 +211,7 @@ def train(args):
             val_loss, _, _, val_acc, val_acc_top5 = evaluate(slrt_model, val_loader, cel_criterion, device)
             slrt_model.train(True)
             val_accs.append(val_acc)
-            val_accs_top5.append(val_accs_top5)
+            val_accs_top5.append(val_acc_top5)
             wandb.log({
                 'train_acc': train_acc,
                 'train_loss': train_loss,
@@ -207,11 +226,21 @@ def train(args):
             if train_acc > top_train_acc:
                 top_train_acc = train_acc
                 val_acc_top5
-                torch.save(slrt_model, "out-checkpoints/" + args.experiment_name + "/checkpoint_t_" + str(checkpoint_index) + ".pth")
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': slrt_model.state_dict(),
+                    'optimizer_state_dict': sgd_optimizer.state_dict(),
+                    'loss': train_loss
+                }, "out-checkpoints/" + args.experiment_name + "/checkpoint_t_" + str(checkpoint_index) + ".pth")
                 
             if val_acc > top_val_acc:
                 top_val_acc = val_acc
-                torch.save(slrt_model, "out-checkpoints/" + args.experiment_name + "/checkpoint_v_" + str(checkpoint_index) + ".pth")
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': slrt_model.state_dict(),
+                    'optimizer_state_dict': sgd_optimizer.state_dict(),
+                    'loss': train_loss
+                }, "out-checkpoints/" + args.experiment_name + "/checkpoint_v_" + str(checkpoint_index) + ".pth")
 
         if epoch % args.log_freq == 0:
             print("[" + str(epoch + 1) + "] TRAIN  loss: " + str(train_loss.item()) + " acc: " + str(train_acc))
@@ -272,7 +301,6 @@ def train(args):
         ax.set(xlabel="Epoch", ylabel="Accuracy / Loss", title="")
         plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.05), ncol=4, fancybox=True, shadow=True, fontsize="xx-small")
         ax.grid()
-
         fig.savefig("out-img/" + args.experiment_name + "_loss.png")
 
     # PLOT 1: Learning rate progress
