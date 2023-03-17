@@ -39,7 +39,7 @@ def evaluate(model, dataloader, cel_criterion, device, print_stats=False):
     pred_correct, pred_top_5,  pred_all = 0, 0, 0
     running_loss = 0.0
     
-    stats = {i: [0, 0] for i in range(101)}
+    stats = {i: [0, 0] for i in range(302)}
 
     data_length = len(dataloader)
 
