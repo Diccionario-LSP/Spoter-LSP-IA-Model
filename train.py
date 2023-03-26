@@ -77,11 +77,23 @@ def get_default_args():
     parser.add_argument("--plot_lr", type=bool, default=True,
                         help="Determines whether the LR should be plotted at the end")
 
+    parser.add_argument("--device", type=int, default=0,
+                    help="Determines which Nvidia device will use (just one number)")
     # To continue training the data
     parser.add_argument("--continue_training", type=str, default="",help="path to retrieve the model to continue training")
 
     return parser
 
+def lr_lambda(current_step, optim):
+    if current_step <= 50:
+        lr_rate = current_step/50000  # Función lineal
+    else:
+        lr_rate = (0.00005/current_step) ** 0.5  # Función de raíz cuadrada inversa
+
+    print(f'[{current_step}], Lr_rate: {lr_rate}')
+    optim.param_groups[0]['lr'] = lr_rate
+
+    return optim
 
 def train(args):
 
@@ -114,7 +126,7 @@ def train(args):
     # Set device to CUDA only if applicable
     device = torch.device("cpu")
     if torch.cuda.is_available():
-        device = torch.device("cuda")
+        device = torch.device(f"cuda:{args.device}")
 
     # Construct the model
     slrt_model = SPOTER(num_classes=args.num_classes, hidden_dim=args.hidden_dim)
@@ -123,7 +135,7 @@ def train(args):
 
 
     # Construct the other modules
-    cel_criterion = nn.CrossEntropyLoss()
+    cel_criterion = nn.CrossEntropyLoss()#label_smoothing=0.1)
     sgd_optimizer = optim.SGD(slrt_model.parameters(), lr=args.lr)
     epoch_start = 0
 
@@ -133,7 +145,8 @@ def train(args):
         sgd_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         epoch_start = checkpoint['epoch']
 
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(sgd_optimizer, factor=args.scheduler_factor, patience=args.scheduler_patience)
+    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(sgd_optimizer, factor=args.scheduler_factor, patience=args.scheduler_patience)
+    #scheduler = optim.lr_scheduler.LambdaLR(sgd_optimizer, lr_lambda=lr_lambda)
 
     # Ensure that the path for checkpointing and for images both exist
     Path("out-checkpoints/" + args.experiment_name + "/").mkdir(parents=True, exist_ok=True)
@@ -154,11 +167,11 @@ def train(args):
 
     # Training set
     transform = transforms.Compose([GaussianNoise(args.gaussian_mean, args.gaussian_std)])
-    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=False, keypoints_model='mediapipe')
+    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=True, keypoints_model='mediapipe')
 
     # Validation set
     if args.validation_set == "from-file":
-        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=True)
+        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=False)
         val_loader = DataLoader(val_set, shuffle=True, generator=g)
 
     elif args.validation_set == "split-from-train":
@@ -202,6 +215,9 @@ def train(args):
         logging.info("Starting " + args.experiment_name + "...\n\n")
 
     for epoch in range(epoch_start, args.epochs):
+
+        sgd_optimizer = lr_lambda(epoch, sgd_optimizer)
+
         train_loss, _, _, train_acc = train_epoch(slrt_model, train_loader, cel_criterion, sgd_optimizer, device)
         losses.append(train_loss.item())
         train_accs.append(train_acc)

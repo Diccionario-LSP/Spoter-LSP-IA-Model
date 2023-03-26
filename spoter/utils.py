@@ -29,7 +29,8 @@ def train_epoch(model, dataloader, criterion, optimizer, device, scheduler=None)
         pred_all += 1
 
     if scheduler:
-        scheduler.step(running_loss.item() / len(dataloader))
+        #scheduler.step(running_loss.item() / len(dataloader))
+        scheduler.step()
 
     return running_loss/data_length, pred_correct, pred_all, (pred_correct / pred_all)
 
