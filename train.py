@@ -80,15 +80,21 @@ def get_default_args():
     parser.add_argument("--device", type=int, default=0,
                     help="Determines which Nvidia device will use (just one number)")
     # To continue training the data
-    parser.add_argument("--continue_training", type=str, default="",help="path to retrieve the model to continue training")
+    parser.add_argument("--continue_training", type=str, default="",help="path to retrieve the model for continue training")
+    parser.add_argument("--transfer_learning", type=str, default="",help="path to retrieve the model for transfer learning")
+
+
 
     return parser
 
 def lr_lambda(current_step, optim):
+
     if current_step <= 50:
         lr_rate = current_step/50000  # Función lineal
     else:
         lr_rate = (0.00005/current_step) ** 0.5  # Función de raíz cuadrada inversa
+
+    lr_rate = 0.0003
 
     print(f'[{current_step}], Lr_rate: {lr_rate}')
     optim.param_groups[0]['lr'] = lr_rate
@@ -119,7 +125,12 @@ def train(args):
         ]
     )
 
-    run = wandb.init(project=PROJECT_WANDB, entity=ENTITY, config=args, name=args.experiment_name, job_type="model-training")
+    run = wandb.init(project=PROJECT_WANDB, 
+                     entity=ENTITY,
+                     config=args, 
+                     name=args.experiment_name, 
+                     job_type="model-training",
+                     tags=["paper"])
     config = wandb.config
     wandb.watch_called = False
 
@@ -128,22 +139,46 @@ def train(args):
     if torch.cuda.is_available():
         device = torch.device(f"cuda:{args.device}")
 
-    # Construct the model
-    slrt_model = SPOTER(num_classes=args.num_classes, hidden_dim=args.hidden_dim)
-    slrt_model.train(True)
-    slrt_model.to(device)
+    #class_weight = torch.FloatTensor([1/class_freq[i] for i in range(args.num_classes)])
 
 
-    # Construct the other modules
-    cel_criterion = nn.CrossEntropyLoss()#label_smoothing=0.1)
-    sgd_optimizer = optim.SGD(slrt_model.parameters(), lr=args.lr)
-    epoch_start = 0
 
+    # RETRIEVE TRAINING
     if args.continue_training:
+
+        slrt_model = SPOTER(num_classes=args.num_classes, hidden_dim=args.hidden_dim)
         checkpoint = torch.load(args.continue_training)
         slrt_model.load_state_dict(checkpoint['model_state_dict'])
         sgd_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         epoch_start = checkpoint['epoch']
+
+    # TRANSFER LEARNING
+    elif args.transfer_learning:
+        slrt_model = SPOTER(num_classes=100, hidden_dim=args.hidden_dim)
+        checkpoint = torch.load(args.transfer_learning)
+        slrt_model.load_state_dict(checkpoint['model_state_dict'])
+
+        # freeze all model layer
+        for param in slrt_model.parameters():
+            param.requires_grad = False
+
+        slrt_model.linear_class = nn.Linear(slrt_model.linear_class.in_features, args.num_classes)
+
+        # unfreeze last model layer
+        for param in slrt_model.linear_class.parameters():
+            param.requires_grad = True
+
+        sgd_optimizer = optim.SGD(slrt_model.linear_class.parameters(), lr=args.lr)
+
+    # Normal scenario
+    else:
+        # Construct the model
+        slrt_model = SPOTER(num_classes=args.num_classes, hidden_dim=args.hidden_dim)
+
+    # Construct the other modules
+    cel_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    sgd_optimizer = optim.SGD(slrt_model.parameters(), lr=args.lr)
+    epoch_start = 0
 
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(sgd_optimizer, factor=args.scheduler_factor, patience=args.scheduler_patience)
     #scheduler = optim.lr_scheduler.LambdaLR(sgd_optimizer, lr_lambda=lr_lambda)
@@ -213,6 +248,9 @@ def train(args):
     else:
         print("Starting " + args.experiment_name + "...\n\n")
         logging.info("Starting " + args.experiment_name + "...\n\n")
+
+    slrt_model.train(True)
+    slrt_model.to(device)
 
     for epoch in range(epoch_start, args.epochs):
 
