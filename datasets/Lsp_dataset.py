@@ -94,7 +94,7 @@ def normalize_pose(data, body_dict):
             '''
             # Set the starting and ending point of the normalization bounding box
             starting_point = [mid_distance[0] - 3 * head_metric, data[sequence_index][body_dict['pose_right_eye']][1] - (head_metric / 2)]
-            ending_point = [mid_distance[0] + 3 * head_metric, starting_point[1] + 4.5 * head_metric]
+            ending_point = [mid_distance[0] + 3 * head_metric, mid_distance[1] + 4.5 * head_metric]
 
             last_starting_point, last_ending_point = starting_point, ending_point
 
@@ -187,7 +187,7 @@ def normalize_pose_hands_function(data, body_section, body_part):
 
     assert len(pose) > 0 and len(leftHand) > 0 and len(rightHand) > 0 #and len(face) > 0
 
-    prepare_keypoints_image(data[2][0][leftHand,:],"before")
+    prepare_keypoints_image(data[2][0][leftHand+rightHand+pose,:],"before")
 
     for index_video in range(len(data)):
         data[index_video][:,pose,:] = normalize_pose(data[index_video][:,pose,:], body_section_dict)
@@ -195,7 +195,7 @@ def normalize_pose_hands_function(data, body_section, body_part):
         data[index_video][:,leftHand,:] = normalize_hand(data[index_video][:,leftHand,:], body_section_dict)
         data[index_video][:,rightHand,:] = normalize_hand(data[index_video][:,rightHand,:], body_section_dict)
 
-    prepare_keypoints_image(data[2][0][leftHand,:],"after")
+    prepare_keypoints_image(data[2][0][leftHand+rightHand+pose,:],"after")
 
     kp_bp_index = {'pose':pose,
                    'left_hand':leftHand,
@@ -356,6 +356,7 @@ class LSP_Dataset(Dataset):
 
         self.data = video_dataset
         self.labels = encoded_dataset
+        self.label_freq = Counter(self.labels)
         #self.targets = list(encoded_dataset)
         self.text_labels = list(labels_dataset)
         self.transform = transform

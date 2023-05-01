@@ -48,9 +48,9 @@ def evaluate(model, dataloader, cel_criterion, device, print_stats=False):
 
     for i, data in enumerate(dataloader):
         inputs, labels = data
-        inputs = inputs.squeeze(0).to(device)
+        inputs = inputs.squeeze(0).cpu() #.to(device)
         labels = labels.to(device, dtype=torch.long)
-
+        print(f"iteration {i} in evaluate")
         outputs = model(inputs).expand(1, -1, -1)
 
         loss = cel_criterion(outputs[0], labels[0])

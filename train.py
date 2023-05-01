@@ -23,8 +23,8 @@ from spoter.gaussian_noise import GaussianNoise
 import wandb
 
 CONFIG_FILENAME = "config.json"
-PROJECT_WANDB = "Spoter-as-orignal"
-ENTITY = "joenatan30"
+PROJECT_WANDB = "AUTSL-PUCP-AEC"
+ENTITY = "c-vasquezr" #joenatan30
 
 def get_default_args():
     parser = argparse.ArgumentParser(add_help=False)
@@ -94,7 +94,7 @@ def lr_lambda(current_step, optim):
     else:
         lr_rate = (0.00005/current_step) ** 0.5  # Función de raíz cuadrada inversa
 
-    lr_rate = 0.0003
+    #lr_rate = 0.0003
 
     print(f'[{current_step}], Lr_rate: {lr_rate}')
     optim.param_groups[0]['lr'] = lr_rate
@@ -139,9 +139,38 @@ def train(args):
     if torch.cuda.is_available():
         device = torch.device(f"cuda:{args.device}")
 
-    #class_weight = torch.FloatTensor([1/class_freq[i] for i in range(args.num_classes)])
+    # DATA LOADER
+        # Training set
+    transform = transforms.Compose([GaussianNoise(args.gaussian_mean, args.gaussian_std)])
+    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=True, keypoints_model='mediapipe')
 
+    # Validation set
+    if args.validation_set == "from-file":
+        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=False)
+        val_loader = DataLoader(val_set, shuffle=True, generator=g)
 
+    elif args.validation_set == "split-from-train":
+        train_set, val_set = __balance_val_split(train_set, 0.2)
+
+        val_set.transform = None
+        val_set.augmentations = False
+        val_loader = DataLoader(val_set, shuffle=True, generator=g)
+    else:
+        val_loader = None
+
+    # Testing set
+    if args.testing_set_path:
+        eval_set = LSP_Dataset(args.testing_set_path, keypoints_model='mediapipe')
+        eval_loader = DataLoader(eval_set, shuffle=True, generator=g)
+
+    else:
+        eval_loader = None
+
+    # Final training set refinements
+    if args.experimental_train_split:
+        train_set = __split_of_train_sequence(train_set, args.experimental_train_split)
+
+    train_loader = DataLoader(train_set, shuffle=True, generator=g)
 
     # RETRIEVE TRAINING
     if args.continue_training:
@@ -176,7 +205,10 @@ def train(args):
         slrt_model = SPOTER(num_classes=args.num_classes, hidden_dim=args.hidden_dim)
 
     # Construct the other modules
-    cel_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    
+    #class_weight = torch.FloatTensor([1/train_set.label_freq[i] for i in range(args.num_classes)]).to(device)
+
+    cel_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)#, weight=class_weight)
     sgd_optimizer = optim.SGD(slrt_model.parameters(), lr=args.lr)
     epoch_start = 0
 
@@ -199,39 +231,6 @@ def train(args):
     print("#"*10)
     print("#"*30)
     print("#"*50)
-
-    # Training set
-    transform = transforms.Compose([GaussianNoise(args.gaussian_mean, args.gaussian_std)])
-    train_set = LSP_Dataset(args.training_set_path, transform=transform, have_aumentation=True, keypoints_model='mediapipe')
-
-    # Validation set
-    if args.validation_set == "from-file":
-        val_set = LSP_Dataset(args.validation_set_path, keypoints_model='mediapipe', have_aumentation=False)
-        val_loader = DataLoader(val_set, shuffle=True, generator=g)
-
-    elif args.validation_set == "split-from-train":
-        train_set, val_set = __balance_val_split(train_set, 0.2)
-
-        val_set.transform = None
-        val_set.augmentations = False
-        val_loader = DataLoader(val_set, shuffle=True, generator=g)
-
-    else:
-        val_loader = None
-
-    # Testing set
-    if args.testing_set_path:
-        eval_set = LSP_Dataset(args.testing_set_path)
-        eval_loader = DataLoader(eval_set, shuffle=True, generator=g)
-
-    else:
-        eval_loader = None
-
-    # Final training set refinements
-    if args.experimental_train_split:
-        train_set = __split_of_train_sequence(train_set, args.experimental_train_split)
-
-    train_loader = DataLoader(train_set, shuffle=True, generator=g)
 
 
     # MARK: TRAINING
@@ -277,6 +276,7 @@ def train(args):
 
         # Save checkpoints if they are best in the current subset
         if args.save_checkpoints:
+            '''
             if train_acc > top_train_acc:
                 top_train_acc = train_acc
                 val_acc_top5
@@ -286,7 +286,7 @@ def train(args):
                     'optimizer_state_dict': sgd_optimizer.state_dict(),
                     'loss': train_loss
                 }, "out-checkpoints/" + args.experiment_name + "/checkpoint_t_" + str(checkpoint_index) + ".pth")
-                
+            '''
             if val_acc > top_val_acc:
                 top_val_acc = val_acc
                 torch.save({
@@ -323,7 +323,7 @@ def train(args):
 
     if eval_loader:
         for i in range(checkpoint_index):
-            for checkpoint_id in ["t", "v"]:
+            for checkpoint_id in ["v"]: #["t", "v"]:
                 # tested_model = VisionTransformer(dim=2, mlp_dim=108, num_classes=100, depth=12, heads=8)
                 tested_model = torch.load("out-checkpoints/" + args.experiment_name + "/checkpoint_" + checkpoint_id + "_" + str(i) + ".pth")
                 tested_model.train(False)
