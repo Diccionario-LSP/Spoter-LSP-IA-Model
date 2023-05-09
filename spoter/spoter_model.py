@@ -47,14 +47,14 @@ class SPOTER(nn.Module):
     def __init__(self, num_classes, hidden_dim=55):
         super().__init__()
 
-        self.row_embed = nn.Parameter(torch.rand(50, hidden_dim))
+        self.row_embed = nn.Parameter(torch.rand(1024, hidden_dim))
         self.pos = nn.Parameter(torch.cat([self.row_embed[0].unsqueeze(0).repeat(1, 1, 1)], dim=-1).flatten(0, 1).unsqueeze(0))
         self.class_query = nn.Parameter(torch.rand(1, hidden_dim))
         self.transformer = nn.Transformer(hidden_dim, 9, 6, 6)
         self.linear_class = nn.Linear(hidden_dim, num_classes)
 
         # Deactivate the initial attention decoder mechanism
-        custom_decoder_layer = SPOTERTransformerDecoderLayer(self.transformer.d_model, self.transformer.nhead, 2048,
+        custom_decoder_layer = SPOTERTransformerDecoderLayer(self.transformer.d_model, self.transformer.nhead, 256,
                                                              0.1, "relu")
         self.transformer.decoder.layers = _get_clones(custom_decoder_layer, self.transformer.decoder.num_layers)
 
