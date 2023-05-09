@@ -258,13 +258,16 @@ def get_dataset_from_hdf5(path,keypoints_model,landmarks_ref,keypoints_number,th
     #torch.Size([5, 71, 2])
 
     print('Total size dataset : ',len(data.keys()))
-
+    print('Keys in dataset:', data.keys())
     video_dataset  = []
     labels_dataset = []
 
+    video_name_dataset = []
+    false_seq_dataset = []
+    percentage_dataset = []
+    max_consec_dataset = []
     time.sleep(2)
     for index in tqdm.tqdm(list(data.keys())):
-
         data_video = np.array(data[index]['data'])
         data_label = np.array(data[index]['label']).item().decode('utf-8')
         # F x C x K  (frames, coords, keypoitns)
@@ -279,8 +282,37 @@ def get_dataset_from_hdf5(path,keypoints_model,landmarks_ref,keypoints_number,th
         if index=='0':
             print('filtered size video : ',data_video.shape,'-- label : ',data_label)
 
+        data_video_name = np.array(data[index]['video_name']).item().decode('utf-8')
+        #data_false_seq = np.array(data[index]['false_seq'])
+        #data_percentage_groups = np.array(data[index]['percentage_group'])
+        #data_max_consec = np.array(data[index]['max_percentage'])
+
+
+
         video_dataset.append(data_video)
         labels_dataset.append(data_label)
+        video_name_dataset.append(data_video_name.encode('utf-8'))
+        #false_seq_dataset.append(data_false_seq)
+        #percentage_dataset.append(data_percentage_groups)
+        #max_consec_dataset.append(data_max_consec)
+        # # Get additional video attributes
+        # videoname = np.array(data[index]['video_name']).item().decode('utf-8')
+        # false_seq = np.array(data[index]['false_seq']).item()
+        # percentage_groups = np.array(data[index]['percentage_group']).item()
+        # max_consec = np.array(data[index]['max_percentage']).item()
+    #     print("videoname:",videoname,"type:",type(videoname))                
+    #     print("false_seq:",false_seq,"type:",type(false_seq))
+    #     print("percentage_groups:",percentage_groups,"type:",type(percentage_groups))
+    #     print("max_consec:",max_consec,"type:",type(max_consec))
+
+    #     video_info.append((
+    #         videoname,
+    #         false_seq,
+    #         percentage_groups,
+    #         max_consec
+    #     ))
+
+    # print("video info shape:",len(video_info))
 
     del data
     gc.collect()
@@ -304,7 +336,7 @@ def get_dataset_from_hdf5(path,keypoints_model,landmarks_ref,keypoints_number,th
     print('total unique labels : ',len(set(labels_dataset)))
     print('Reading dataset completed!')
 
-    return video_dataset,labels_dataset,encoded_dataset,dict_labels_dataset,inv_dict_labels_dataset, df_keypoints['Section'], section_keypoints
+    return video_dataset, video_name_dataset, labels_dataset, encoded_dataset, dict_labels_dataset, inv_dict_labels_dataset, df_keypoints['Section'], section_keypoints
 
 class LSP_Dataset(Dataset):
     """Advanced object representation of the HPOES dataset for loading hand joints landmarks utilizing the Torch's
@@ -343,7 +375,7 @@ class LSP_Dataset(Dataset):
         print('self.list_labels_banned',self.list_labels_banned)
         logging.info('self.list_labels_banned '+str(self.list_labels_banned))
 
-        video_dataset,labels_dataset,encoded_dataset,dict_labels_dataset,inv_dict_labels_dataset, body_section, body_part = get_dataset_from_hdf5(path=dataset_filename,
+        video_dataset, video_name_dataset, labels_dataset, encoded_dataset, dict_labels_dataset, inv_dict_labels_dataset, body_section, body_part = get_dataset_from_hdf5(path=dataset_filename,
                                                                                                                                        keypoints_model=keypoints_model,
                                                                                                                                        landmarks_ref=landmarks_ref,
                                                                                                                                        keypoints_number = keypoints_number,
@@ -355,6 +387,10 @@ class LSP_Dataset(Dataset):
         video_dataset, keypoint_body_part_index, body_section_dict = normalize_pose_hands_function(video_dataset, body_section, body_part)
 
         self.data = video_dataset
+        self.video_name = video_name_dataset
+        #self.false_seq = false_seq_dataset
+        #self.percentage = percentage_dataset
+        #self.max_consec = max_consec_dataset
         self.labels = encoded_dataset
         self.label_freq = Counter(self.labels)
         #self.targets = list(encoded_dataset)
@@ -379,6 +415,7 @@ class LSP_Dataset(Dataset):
         """
         depth_map = torch.from_numpy(np.copy(self.data[idx]))
 
+
         # Apply potential augmentations
         if self.have_aumentation and random.random() < self.augmentations_prob:
 
@@ -398,11 +435,18 @@ class LSP_Dataset(Dataset):
 
 
 
+
+
+        video_name = self.video_name[idx].decode('utf-8')
+        #false_seq = self.false_seq
+        #percentage_group = self.percentage
+        #max_consec = self.max_consec
         label = torch.Tensor([self.labels[idx]])
         depth_map = depth_map - 0.5
         if self.transform:
             depth_map = self.transform(depth_map)
-        return depth_map, label
+        return depth_map, label, video_name #, false_seq, percentage_group, max_consec
 
     def __len__(self):
         return len(self.labels)
+
