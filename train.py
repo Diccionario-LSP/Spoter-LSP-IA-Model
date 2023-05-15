@@ -98,12 +98,12 @@ def lr_lambda(current_step, optim):
 
     #lr_rate = 0.0003
 
-    '''
+
     if current_step <= 30:
         lr_rate = current_step/30000  # Función lineal
     else:
         lr_rate = (0.00003/current_step) ** 0.5  # Función de raíz cuadrada inversa
-    '''
+
 
     print(f'[{current_step}], Lr_rate: {lr_rate}')
     optim.param_groups[0]['lr'] = lr_rate
