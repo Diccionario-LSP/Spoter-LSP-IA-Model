@@ -75,7 +75,7 @@ def evaluate(model, dataloader, cel_criterion, device, print_stats=False):
         logging.info("Label accuracies statistics:")
         logging.info(str(stats) + "\n")
 
-    return running_loss/data_length, pred_correct, pred_all, (pred_correct / pred_all), (pred_top_5 / pred_all)
+    return running_loss/data_length, pred_correct, pred_all, (pred_correct / pred_all), (pred_top_5 / pred_all), stats
 
 
 def evaluate_top_k(model, dataloader, device, k=5):
@@ -206,4 +206,11 @@ def generate_csv_result(run, model, dataloader, folder_path, meaning, device):
     #artifact = wandb.Artifact(f'predicciones_{run.id}.csv', type='dataset')
     #artifact.add_file(full_path)
     #run.log_artifact(artifact)
+    wandb.save(full_path)
+
+
+def generate_csv_accuracy(df_stats, folder_path):
+
+    full_path = folder_path+'/accuracy.csv'
+    df_stats.to_csv(full_path, index=False, encoding='utf-8')
     wandb.save(full_path)

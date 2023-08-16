@@ -5,6 +5,7 @@ import random
 import logging
 import torch
 
+import pandas as pd
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
@@ -17,7 +18,7 @@ from pathlib import Path
 from utils import __balance_val_split, __split_of_train_sequence, __log_class_statistics
 from datasets.Lsp_dataset import LSP_Dataset
 from spoter.spoter_model import SPOTER
-from spoter.utils import train_epoch, evaluate, generate_csv_result
+from spoter.utils import train_epoch, evaluate, generate_csv_result, generate_csv_accuracy
 from spoter.gaussian_noise import GaussianNoise
 
 import wandb
@@ -26,7 +27,7 @@ CONFIG_FILENAME = "config.json"
 PROJECT_WANDB = "Spoter-as-orignal"
 ENTITY = "joenatan30" #c-vasquezr
 
-os.environ["WANDB_API_KEY"] = 'c16c54799944a6127132bcb81b2fb9ebcb4fe5db'#'ad99391cceac9cd1bce871e14b2bb69a117bbbf4'
+os.environ["WANDB_API_KEY"] = ''#'ad99391cceac9cd1bce871e14b2bb69a117bbbf4'
 
 def get_default_args():
     parser = argparse.ArgumentParser(add_help=False)
@@ -90,29 +91,21 @@ def get_default_args():
     return parser
 
 
-
-
-
-
 def lr_lambda(current_step, optim):
 
     #lr_rate = 0.0003
-
-
+    lr_rate = 0.00005
+    '''
     if current_step <= 30:
         lr_rate = current_step/30000  # Función lineal
     else:
         lr_rate = (0.00003/current_step) ** 0.5  # Función de raíz cuadrada inversa
-
+    '''
 
     print(f'[{current_step}], Lr_rate: {lr_rate}')
     optim.param_groups[0]['lr'] = lr_rate
 
     return optim
-
-
-
-
 
 
 def train(args):
@@ -222,17 +215,9 @@ def train(args):
     # Construct the other modules
     
     #class_weight = torch.FloatTensor([1/train_set.label_freq[i] for i in range(args.num_classes)]).to(device)
-
-    
-    
-    
     
     cel_criterion = nn.CrossEntropyLoss(label_smoothing=0.1)#, weight=class_weight)
     #cel_criterion = nn.CrossEntropyLoss()
-    
-    
-    
-    
     
     sgd_optimizer = optim.SGD(slrt_model.parameters(), lr=args.lr)
     epoch_start = 0
@@ -286,7 +271,7 @@ def train(args):
 
         if val_loader:
             slrt_model.train(False)
-            val_loss, _, _, val_acc, val_acc_top5 = evaluate(slrt_model, val_loader, cel_criterion, device)
+            val_loss, _, _, val_acc, val_acc_top5, stats = evaluate(slrt_model, val_loader, cel_criterion, device)
             slrt_model.train(True)
             val_accs.append(val_acc)
             val_accs_top5.append(val_acc_top5)
@@ -301,20 +286,16 @@ def train(args):
 
         # Save checkpoints if they are best in the current subset
         if args.save_checkpoints:
-            '''
-            if train_acc > top_train_acc:
-                top_train_acc = train_acc
-                val_acc_top5
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': slrt_model.state_dict(),
-                    'optimizer_state_dict': sgd_optimizer.state_dict(),
-                    'loss': train_loss
-                }, "out-checkpoints/" + args.experiment_name + "/checkpoint_t_" + str(checkpoint_index) + ".pth")
-            '''
             if val_acc > top_val_acc:
                 top_val_acc = val_acc
 
+                stats = {val_set.inv_dict_labels_dataset[k]:v for k,v in stats.items() if k < args.num_classes}
+                
+                df_stats = pd.DataFrame(stats.items(), columns=['clase', 'Aciertos_Total'])
+                df_stats[['Aciertos', 'Total']] = pd.DataFrame(df_stats['Aciertos_Total'].tolist(), index=df_stats.index)
+                df_stats.drop(columns=['Aciertos_Total'], inplace=True)
+                df_stats['Accuracy'] = df_stats['Aciertos'] / df_stats['Total']
+                print(df_stats)
                 model_save_folder_path = "out-checkpoints/" + args.experiment_name
 
                 torch.save({
@@ -325,7 +306,8 @@ def train(args):
                 }, model_save_folder_path + "/checkpoint_best_model.pth")
                 
                 generate_csv_result(run, slrt_model, val_loader, model_save_folder_path, val_set.inv_dict_labels_dataset, device)
-
+                generate_csv_accuracy(df_stats, model_save_folder_path)
+                
                 artifact = wandb.Artifact(f'best-model_{run.id}.pth', type='model')
                 artifact.add_file(model_save_folder_path + "/checkpoint_best_model.pth")
                 run.log_artifact(artifact)
