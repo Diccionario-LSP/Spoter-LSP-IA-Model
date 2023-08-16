@@ -24,12 +24,23 @@ The strategies detailed in this paper are designed to counter overfitting by mak
 
 This study investigates how shortening videos due to missing landmarks affects the performance of our sign language recognition model. Our research reveals that while reducing video length does result in a slight drop in model performance, we've chosen to retain videos with missing parts in our dataset.
 
+
+Please feel free to explore this repository and the associated papers to gain a deeper understanding of our research and its outcomes.
+
+For any questions, comments, or collaborations, please don't hesitate to get in touch!
+
 ## Get Started
 
 First, make sure to install all necessary dependencies using:
 
 ```shell
 pip install -r requirements.txt
+```
+
+Create an account on [Weights & Biases](https://wandb.ai/) to facilitate experiment tracking and reproducibility. Then please set up your `WANDB_API_KEY` in your environment.
+
+```
+export WANDB_API_KEY=your_api_key_here
 ```
 
 To train the model, simply specify the hyperparameters and run the following:
@@ -45,9 +56,7 @@ python -m train
   --validation_set_path [str; path to the H5 file with validation set's skeletal data]
 ```
 
-## Using WandB for Reproducibility
-
-We use [Weights & Biases](https://wandb.ai/) for experiment tracking and reproducibility. To replicate our experiments, consider creating a WandB account and setting up your `WANDB_API_KEY` in your environment.
+The hyperparameter modifications made during our research are hardcoded in the repository, so you can directly experiment with the provided hyperparameters.
 
 ## License
 
