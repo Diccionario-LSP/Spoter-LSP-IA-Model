@@ -27,7 +27,7 @@ CONFIG_FILENAME = "config.json"
 PROJECT_WANDB = "Spoter-as-orignal"
 ENTITY = "joenatan30" #c-vasquezr
 
-os.environ["WANDB_API_KEY"] = ''#'ad99391cceac9cd1bce871e14b2bb69a117bbbf4'
+#os.environ["WANDB_API_KEY"] = ''#'ad99391cceac9cd1bce871e14b2bb69a117bbbf4'
 
 def get_default_args():
     parser = argparse.ArgumentParser(add_help=False)
