@@ -5,9 +5,24 @@
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/sign-pose-based-transformer-for-word-level/sign-language-recognition-on-lsa64)](https://paperswithcode.com/sota/sign-language-recognition-on-lsa64?p=sign-pose-based-transformer-for-word-level)
 
-Repository accompanying the [Sign Pose-based Transformer for Word-level Sign Language Recognition](https://openaccess.thecvf.com/content/WACV2022W/HADCV/html/Bohacek_Sign_Pose-Based_Transformer_for_Word-Level_Sign_Language_Recognition_WACVW_2022_paper.html) paper, where we present a novel architecture for word-level sign language recognition based on the Transformer model. We designed our solution with low computational cost in mind, since we see egreat potential in the usage of such recognition system on hand-held devices. We introduce multiple original augmentation techniques tailored for the task of sign language recognition and propose a unique normalization scheme based on sign language linguistics.
 
-![Alt Text](http://spoter.signlanguagerecognition.com/img/architecture_github.gif)
+This is a forked version of the original repository created by Matyáš Boháček and is based on the research paper titled "[Sign Pose-based Transformer for Word-level Sign Language Recognition](https://openaccess.thecvf.com/content/WACV2022W/HADCV/html/Bohacek_Sign_Pose-Based_Transformer_for_Word-Level_Sign_Language_Recognition_WACVW_2022_paper.html)." 
+
+## Research Contributions
+
+In the course of our research using Spoter, we have made several contributions, including the following papers and extended abstract:
+
+- **[Impact of Pose Estimation Models for Landmark-based Sign Language Recognition](https://research.latinxinai.org/papers/neurips/2022/pdf/18_CameraReady.pdf)**
+
+In this paper, we delve into the significance of pose estimation models for landmark-based sign language recognition. We specifically explore the utilization of 29 and 71 landmarks from Mediapipe, Openpose, and RHnet models to input into both the Spoter and a graph-based model. Through our analysis, we conclude that the Mediapipe model in combination with the Spoter model exhibits better compatibility with our dataset. Interestingly, we observe that employing 71 points yields positive outcomes, but subsequent experiments led us to discover that using 54 points actually yields superior results.
+
+- **[Less is More: Techniques to Reduce Overfitting in your Transformer Model for Sign Language Recognition](https://research.latinxinai.org/papers/cvpr/2023/pdf/Joe_Huamani.pdf)**
+
+The strategies detailed in this paper are designed to counter overfitting by making modifications to both the data and the training process. Our findings underscore the effectiveness of employing a combination of the AEC and PUCP305 techniques, which yield notable improvements in our results. Additionally, we highlight the significance of data augmentation, label smoothing, and model complexity reduction in enhancing model generalization. These insights have led us to make certain parameter adjustments to the Spoter model to better balance complexity and performance. 
+
+- **[Impact of Video Length Reduction due to Missing Landmarks on Sign Language Recognition Model](https://research.latinxinai.org/papers/cvpr/2023/pdf/Carlos_Vasquez.pdf)**
+
+This study investigates how shortening videos due to missing landmarks affects the performance of our sign language recognition model. Our research reveals that while reducing video length does result in a slight drop in model performance, we've chosen to retain videos with missing parts in our dataset.
 
 ## Get Started
 
@@ -21,41 +36,19 @@ To train the model, simply specify the hyperparameters and run the following:
 
 ```
 python -m train
-  --experiment_name [str; name of the experiment to name the output logs and plots]
+  --experiment_name [str; name of the experiment to name the output logs and plots in WandB]
   
   --epochs [int; number of epochs]
   --lr [float; learning rate]
   
-  --training_set_path [str; path to the csv file with training set's skeletal data]
-  --validation_set_path [str; path to the csv file with validation set's skeletal data]
-  --testing_set_path [str; path to the csv file with testing set's skeletal data]
+  --training_set_path [str; path to the H5 file with training set's skeletal data]
+  --validation_set_path [str; path to the H5 file with validation set's skeletal data]
 ```
 
-If either the validation or testing sets' paths are left empty, these corresponding metrics will not be calculated. We also provide out-of-the box parameter to split the validation set as a desired split of the training set while preserving the label distribution for datasets without author-specified splits. These and many other specific hyperparameters with their descriptions can be found in the [train.py](https://github.com/matyasbohacek/spoter/blob/main/train.py) file. All of them are provided a default value we found to be working well in our experiments.
+## Using WandB for Reproducibility
 
-## Data
-
-As SPOTER works on top of sequences of signers' skeletal data extracted from videos, we wanted to eliminate the computational demands of such annotation for each training run by pre-collecting this. For this reason and reproducibility, we are open-sourcing this data for WLASL100 and LSA64 datasets along with the repository. You can find the data [here](https://github.com/matyasbohacek/spoter/releases/tag/supplementary-data).
-
-![Alt Text](http://spoter.signlanguagerecognition.com/img/datasets_overview.gif)
+We use [Weights & Biases](https://wandb.ai/) for experiment tracking and reproducibility. To replicate our experiments, consider creating a WandB account and setting up your `WANDB_API_KEY` in your environment.
 
 ## License
 
-The **code** is published under the [Apache License 2.0](https://github.com/matyasbohacek/spoter/blob/main/LICENSE) which allows for both academic and commercial use if  relevant License and copyright notice is included, our work is cited and all changes are stated.
-
-The accompanying skeletal data of the [WLASL](https://arxiv.org/pdf/1910.11006.pdf) and [LSA64](https://core.ac.uk/download/pdf/76495887.pdf) datasets used for experiments are, however, shared under the [Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/) license allowing only for non-commercial usage.
-
-## Citation
-
-If you find our work relevant, build upon it or compare your approaches with it, please cite our work as stated below:
-
-```
-@InProceedings{Bohacek_2022_WACV,
-    author    = {Boh\'a\v{c}ek, Maty\'a\v{s} and Hr\'uz, Marek},
-    title     = {Sign Pose-Based Transformer for Word-Level Sign Language Recognition},
-    booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) Workshops},
-    month     = {January},
-    year      = {2022},
-    pages     = {182-191}
-}
-```
+The **code** is published under the [Apache License 2.0](https://github.com/matyasbohacek/spoter/blob/main/LICENSE) which allows for both academic and commercial use as presented in the original repository of Matyáš Boháček.
