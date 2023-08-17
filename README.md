@@ -58,6 +58,22 @@ python -m train
 
 The hyperparameter modifications made during our research are hardcoded in the repository, so you can directly experiment with the provided hyperparameters.
 
+## Test the inference
+
+To use the inference, you'll need to download the following files:
+
+* points_54.csv
+* spoter-50Classes-68_5Top1acc_87Top5acc.pth
+
+To obtain these files, please contact us.
+
+After obtaining the necessary files, you can run the inference script:
+
+```
+python inference.py
+```
+This will allow you to test the model's performance on new data and see its predictions in action.
+
 ## License
 
 The **code** is published under the [Apache License 2.0](https://github.com/matyasbohacek/spoter/blob/main/LICENSE) which allows for both academic and commercial use as presented in the original repository of Matyáš Boháček.
