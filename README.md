@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ![Top Banner](https://data.matsworld.io/signlanguagerecognition/GitHub_banner.png)
 
 > by **[Matyáš Boháček](https://github.com/matyasbohacek)** and **[Marek Hrúz](https://github.com/mhruz)**, University of West Bohemia <br>
@@ -62,6 +61,3 @@ The hyperparameter modifications made during our research are hardcoded in the r
 ## License
 
 The **code** is published under the [Apache License 2.0](https://github.com/matyasbohacek/spoter/blob/main/LICENSE) which allows for both academic and commercial use as presented in the original repository of Matyáš Boháček.
-=======
-# Spoter-LSP-IA-Model
->>>>>>> 9abc34d61cfd5ea678478b023ac0636fae7e5a37
