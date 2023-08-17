@@ -1,0 +1,33 @@
+{
+    "hparams":{
+        "epochs": 5000,
+        "num_backups": 4,
+        "keypoints_model": "mediapipe",
+        "lr": 0.0005,
+        "keypoints_number": 108,
+        "num_classes":50,
+        "nhead": 2,
+        "num_encoder_layers":2,
+        "num_decoder_layers":2,
+        "dim_feedforward":256,
+        "experimental_train_split": null,
+        "validation_set": "from-file",
+        "validation_set_size": null,
+        "log_freq": 1,
+        "save_checkpoints": true,
+        "scheduler_factor": 0.1,
+        "scheduler_patience": 100,
+        "gaussian_mean": 0,
+        "gaussian_std": 0.001,
+        "plot_stats": true,
+        "plot_lr": true
+    },
+
+    "seed":1,
+    "device":[0],
+    "dataset_path": "../ConnectingPoints/split",
+    
+    "weights_trained": "weights_trained",
+    "save_weights_path": "./Weights",
+    "dataset": "AEC-DGI156-DGI305"
+}

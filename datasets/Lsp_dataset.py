@@ -4,6 +4,7 @@ import tqdm
 import time
 import h5py
 import glob
+import json
 import torch
 import pandas as pd
 import numpy as np
@@ -324,6 +325,12 @@ def get_dataset_from_hdf5(path,keypoints_model,landmarks_ref,keypoints_number,th
         for index,label in enumerate(sorted(set(labels_dataset))):
             dict_labels_dataset[label] = index
             inv_dict_labels_dataset[index] = label
+    
+    json_data = json.dumps(inv_dict_labels_dataset, indent=4)
+    json_file_path = "meaning.json"
+    with open(json_file_path, "w") as jsonfile:
+        jsonfile.write(json_data)
+    assert 1 == 2
     
     print('sorted(set(labels_dataset))  : ',sorted(set(labels_dataset)))
     print('dict_labels_dataset      :',dict_labels_dataset)
