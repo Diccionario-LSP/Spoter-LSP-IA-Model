@@ -44,7 +44,7 @@ class SPOTER(nn.Module):
     of skeletal data.
     """
 
-    def __init__(self, num_classes, hidden_dim=55):
+    def __init__(self, num_classes, hidden_dim=108):
         super().__init__()
 
         self.row_embed = nn.Parameter(torch.rand(1024, hidden_dim))

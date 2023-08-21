@@ -54,15 +54,27 @@ python -m train
   
   --training_set_path [str; path to the H5 file with training set's skeletal data]
   --validation_set_path [str; path to the H5 file with validation set's skeletal data]
+  --device [int; GPU number if GPU is available]
 ```
 
 The hyperparameter modifications made during our research are hardcoded in the repository, so you can directly experiment with the provided hyperparameters.
 
+## Reproduce our results
+
+To reproduce the results of our you need to download from this [link](https://drive.google.com/drive/folders/1E8uFYai2JVhu1DfwPj5Z7Pr2mqgg_Ype?usp=drive_link) the following files:
+
+* DGI305-AEC--50--mediapipe--Train.hdf5
+* DGI305-AEC--50--mediapipe--Val.hdf5
+* points_54.csv
+
+To obtain these files, please contact us.
+
 ## Test the inference
 
-To use the inference, you'll need to download the following files:
+To use the inference, you'll need to download the following files from the same [link](https://drive.google.com/drive/folders/1E8uFYai2JVhu1DfwPj5Z7Pr2mqgg_Ype?usp=drive_link):
 
 * points_54.csv
+* meaning.json
 * spoter-50Classes-68_5Top1acc_87Top5acc.pth
 
 To obtain these files, please contact us.
